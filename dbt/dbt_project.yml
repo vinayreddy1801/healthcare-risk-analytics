@@ -1,0 +1,37 @@
+name: 'healthcare_risk'
+version: '1.0.0'
+config-version: 2
+
+profile: 'healthcare_risk'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  measurement_year: 2023
+  project_id: "healthcare-risk-vinay"
+  bq_dataset: "healthcare_risk"
+
+seeds:
+  healthcare_risk:
+    snomed_condition_map:
+      +column_types:
+        snomed_code: string
+        hcc_weight: float64
+
+models:
+  healthcare_risk:
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging"]
+    intermediate:
+      +materialized: ephemeral
+      +tags: ["intermediate"]
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ["marts"]

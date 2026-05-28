@@ -1,0 +1,89 @@
+version: 2
+
+models:
+  - name: mart_member_risk_profile
+    description: "Member-level risk profile with HCC score, risk tier, and cost/utilization metrics. One row per member per measurement year."
+    columns:
+      - name: member_id
+        tests: [unique, not_null]
+      - name: measurement_year
+        tests: [not_null]
+      - name: risk_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['high', 'moderate', 'rising_cost', 'low']
+      - name: hcc_risk_score
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 5
+      - name: condition_count
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 20
+      - name: cost_pmpm
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: total_healthcare_expenses
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+  - name: mart_care_gaps
+    description: "HEDIS-adjacent care gaps per member. One row per member per gap_type. NOT NCQA-certified."
+    columns:
+      - name: gap_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+      - name: gap_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['diabetes_a1c', 'diabetes_eye_exam', 'high_risk_med_review', 'readmission_30d']
+      - name: gap_open
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+
+  - name: mart_cost_utilization
+    description: "Population cost and utilization aggregated by risk tier and measurement year"
+    columns:
+      - name: risk_tier
+        tests: [not_null]
+      - name: measurement_year
+        tests: [not_null]
+      - name: member_count
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+      - name: avg_cost_pmpm
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: pct_of_population
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_provider_efficiency
+    description: "Provider-level cost and quality scorecard with efficiency quadrant classification"
+    columns:
+      - name: provider_npi
+        tests: [unique, not_null]
+      - name: attributed_member_count
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 5
+      - name: efficiency_quadrant
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['High Value', 'Low Value', 'Complex High Cost', 'Complex Managed']

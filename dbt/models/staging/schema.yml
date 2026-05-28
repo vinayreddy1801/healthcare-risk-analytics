@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: stg_members
+    description: "Standardized Synthea patient demographics. One row per patient."
+    columns:
+      - name: member_id
+        tests: [unique, not_null]
+      - name: measurement_year
+        tests: [not_null]
+      - name: sex
+        tests:
+          - accepted_values:
+              values: ['M', 'F', 'U']
+      - name: total_healthcare_expenses
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+  - name: stg_encounters
+    description: "All Synthea encounters mapped to claim types. One row per encounter."
+    columns:
+      - name: encounter_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+      - name: claim_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['inpatient', 'emergency', 'outpatient', 'carrier']
+      - name: paid_amount
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+  - name: stg_conditions
+    description: "Synthea patient conditions with SNOMED-CT codes. One row per condition onset."
+    columns:
+      - name: condition_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+      - name: snomed_code
+        tests: [not_null]
+
+  - name: stg_procedures
+    description: "Synthea clinical procedures with SNOMED-CT codes."
+    columns:
+      - name: procedure_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+
+  - name: stg_medications
+    description: "Synthea medication prescriptions with RxNorm codes."
+    columns:
+      - name: rx_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+      - name: total_drug_cost
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0

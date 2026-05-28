@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: int_claims_unioned
+    description: "All claim types unioned into a single spine. One row per dx/CPT code per claim line."
+    columns:
+      - name: claims_line_id
+        tests: [unique, not_null]
+      - name: member_id
+        tests: [not_null]
+      - name: claim_type
+        tests:
+          - accepted_values:
+              values: ['inpatient', 'outpatient', 'carrier', 'emergency']
+
+  - name: int_dx_code_flags
+    description: "Claims dx codes joined to condition map. One row per claim line with condition category."
+    columns:
+      - name: member_id
+        tests: [not_null]
+      - name: dx_code
+        tests: [not_null]
+
+  - name: int_member_chronic_flags
+    description: "Member-level chronic condition flags derived from claims (CCW algorithm logic)"
+    columns:
+      - name: member_id
+        tests: [unique, not_null]
+      - name: hcc_risk_score
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 5

@@ -1,0 +1,25 @@
+# dbt
+dbt-core>=1.7.14,<1.8.0
+dbt-bigquery==1.7.0
+
+# Airflow (core + GCP providers - commented out because Airflow 2.8 does not support Python 3.12 and is not run natively on Windows)
+# apache-airflow==2.8.0
+# apache-airflow-providers-google==10.13.0
+# apache-airflow-providers-slack==8.4.0
+
+# BigQuery / GCP
+google-cloud-bigquery==3.14.0
+google-cloud-bigquery-storage==2.24.0
+google-cloud-storage==2.14.0
+google-auth==2.25.2
+pyarrow==14.0.2
+db-dtypes==1.2.0
+
+# Streamlit dashboard
+streamlit==1.29.0
+plotly==5.18.0
+pandas==2.1.4
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0

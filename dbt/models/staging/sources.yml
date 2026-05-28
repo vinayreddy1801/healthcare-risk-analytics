@@ -1,0 +1,53 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ var('project_id') }}"
+    schema: raw
+    description: "Synthea synthetic patient data loaded from GCS into BigQuery"
+    tables:
+      - name: patients
+        description: "Synthetic patient demographics and cost totals"
+        columns:
+          - name: Id
+            tests: [unique, not_null]
+          - name: BIRTHDATE
+            tests: [not_null]
+          - name: GENDER
+            tests: [not_null]
+
+      - name: encounters
+        description: "All patient encounters — inpatient, outpatient, emergency, ambulatory"
+        columns:
+          - name: Id
+            tests: [unique, not_null]
+          - name: PATIENT
+            tests: [not_null]
+          - name: START
+            tests: [not_null]
+
+      - name: conditions
+        description: "Patient diagnoses with SNOMED-CT codes"
+        columns:
+          - name: PATIENT
+            tests: [not_null]
+          - name: CODE
+            tests: [not_null]
+
+      - name: procedures
+        description: "Clinical procedures with SNOMED-CT codes"
+        columns:
+          - name: PATIENT
+            tests: [not_null]
+
+      - name: medications
+        description: "Medication prescriptions with RxNorm codes"
+        columns:
+          - name: PATIENT
+            tests: [not_null]
+
+      - name: providers
+        description: "Healthcare provider reference data"
+        columns:
+          - name: Id
+            tests: [unique, not_null]
