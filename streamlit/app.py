@@ -79,12 +79,14 @@ def get_bq_client():
                 project = env_project or creds.project_id
                 return bigquery.Client(credentials=creds, project=project)
                 
-        # 3. Only check st.secrets if secrets file exists to prevent Streamlit's red warning UI boxes
-        secrets_exist = False
-        for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-            if os.path.exists(path):
-                secrets_exist = True
-                break
+        # 3. Only check st.secrets if secrets file exists or we are in Streamlit Cloud to prevent Streamlit's red warning UI boxes
+        is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
+        secrets_exist = is_streamlit_cloud
+        if not secrets_exist:
+            for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
+                if os.path.exists(path):
+                    secrets_exist = True
+                    break
                 
         if secrets_exist and "gcp" in st.secrets:
             if "credentials" in st.secrets["gcp"]:
@@ -139,11 +141,13 @@ def get_project() -> str:
         except Exception:
             pass
             
-    secrets_exist = False
-    for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-        if os.path.exists(path):
-            secrets_exist = True
-            break
+    is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
+    secrets_exist = is_streamlit_cloud
+    if not secrets_exist:
+        for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
+            if os.path.exists(path):
+                secrets_exist = True
+                break
             
     if secrets_exist:
         try:
@@ -156,11 +160,13 @@ def get_project() -> str:
 
 def get_dataset() -> str:
     import os
-    secrets_exist = False
-    for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-        if os.path.exists(path):
-            secrets_exist = True
-            break
+    is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
+    secrets_exist = is_streamlit_cloud
+    if not secrets_exist:
+        for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
+            if os.path.exists(path):
+                secrets_exist = True
+                break
             
     if secrets_exist:
         try:
