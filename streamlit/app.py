@@ -89,14 +89,20 @@ def get_bq_client():
                     break
                 
         if secrets_exist and "gcp" in st.secrets:
-            if "credentials" in st.secrets["gcp"]:
-                creds = service_account.Credentials.from_service_account_info(
-                    st.secrets["gcp"]["credentials"]
-                )
-                project = st.secrets["gcp"]["project_id"]
+            gcp_secrets = st.secrets["gcp"]
+            # Support both flat and nested credentials TOML structures
+            creds_dict = None
+            if "credentials" in gcp_secrets:
+                creds_dict = gcp_secrets["credentials"]
+            elif "private_key" in gcp_secrets:
+                creds_dict = gcp_secrets
+                
+            if creds_dict:
+                creds = service_account.Credentials.from_service_account_info(creds_dict)
+                project = gcp_secrets.get("project_id") or creds.project_id
                 return bigquery.Client(credentials=creds, project=project)
             else:
-                project = st.secrets["gcp"].get("project_id", "healthcare-risk-vinay")
+                project = gcp_secrets.get("project_id", "healthcare-risk-vinay")
                 return bigquery.Client(project=project)
                 
         # 4. Fallback to default client
