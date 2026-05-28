@@ -62,59 +62,31 @@ TIER_ORDER = ["high", "rising_cost", "moderate", "low"]
 def get_bq_client():
     import os
     try:
-        # 1. Try GOOGLE_APPLICATION_CREDENTIALS env var
-        env_creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        env_project = os.environ.get("GCP_PROJECT_ID")
-        
-        if env_creds_path and os.path.exists(env_creds_path):
-            creds = service_account.Credentials.from_service_account_file(env_creds_path)
-            project = env_project or creds.project_id
+        project = st.secrets["gcp"]["project_id"]
+
+        # If full credentials are in secrets (Streamlit Cloud)
+        if "credentials" in st.secrets["gcp"]:
+            creds_dict = dict(st.secrets["gcp"]["credentials"])
+            creds = service_account.Credentials.from_service_account_info(
+                creds_dict,
+                scopes=["https://www.googleapis.com/auth/bigquery"]
+            )
             return bigquery.Client(credentials=creds, project=project)
-            
-        # 2. Try fallback to a local keyfile in the root path if it exists
-        # Check standard locations (C:\projects\healthcare_risk or current working directory)
-        for key_path in ["gcp-json-key.json", "C:/projects/healthcare_risk/gcp-json-key.json"]:
-            if os.path.exists(key_path):
-                creds = service_account.Credentials.from_service_account_file(key_path)
-                project = env_project or creds.project_id
-                return bigquery.Client(credentials=creds, project=project)
-                
-        # 3. Only check st.secrets if secrets file exists or we are in Streamlit Cloud to prevent Streamlit's red warning UI boxes
-        is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None or os.name == 'posix'
-        secrets_exist = is_streamlit_cloud
-        if not secrets_exist:
-            for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-                if os.path.exists(path):
-                    secrets_exist = True
-                    break
-                
-        if secrets_exist and "gcp" in st.secrets:
-            gcp_secrets = st.secrets["gcp"]
-            # Support both flat and nested credentials TOML structures
-            creds_dict = None
-            if "credentials" in gcp_secrets:
-                creds_dict = gcp_secrets["credentials"]
-            elif "private_key" in gcp_secrets:
-                creds_dict = gcp_secrets
-                
-            if creds_dict:
-                creds = service_account.Credentials.from_service_account_info(creds_dict)
-                project = gcp_secrets.get("project_id") or creds.project_id
-                return bigquery.Client(credentials=creds, project=project)
-            else:
-                project = gcp_secrets.get("project_id", "healthcare-risk-vinay")
-                return bigquery.Client(project=project)
-                
-        # 4. Fallback to default client
-        return bigquery.Client()
+
+        # Fallback: local service account key file
+        key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if key_path and os.path.exists(key_path):
+            creds = service_account.Credentials.from_service_account_file(
+                key_path,
+                scopes=["https://www.googleapis.com/auth/bigquery"]
+            )
+            return bigquery.Client(credentials=creds, project=project)
+
+        # Last resort: ADC
+        return bigquery.Client(project=project)
+
     except Exception as e:
-        has_gcp_secrets = "No (st.secrets is empty or gcp not found)"
-        try:
-            if "gcp" in st.secrets:
-                has_gcp_secrets = "Yes (gcp found in st.secrets)"
-        except Exception as se:
-            has_gcp_secrets = f"Error reading secrets: {se}"
-        st.error(f"BigQuery connection failed: {e}\n\n**Diagnostic Info:**\n* **Streamlit Cloud Detected:** `{os.environ.get('STREAMLIT_SHARING_MODE') is not None}`\n* **OS Name:** `{os.name}`\n* **GCP Secrets Detected:** `{has_gcp_secrets}`")
+        st.error(f"BigQuery connection failed: {e}")
         return None
 
 
