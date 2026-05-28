@@ -80,7 +80,7 @@ def get_bq_client():
                 return bigquery.Client(credentials=creds, project=project)
                 
         # 3. Only check st.secrets if secrets file exists or we are in Streamlit Cloud to prevent Streamlit's red warning UI boxes
-        is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
+        is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None or os.name == 'posix'
         secrets_exist = is_streamlit_cloud
         if not secrets_exist:
             for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
@@ -102,7 +102,13 @@ def get_bq_client():
         # 4. Fallback to default client
         return bigquery.Client()
     except Exception as e:
-        st.error(f"BigQuery connection failed: {e}")
+        has_gcp_secrets = "No (st.secrets is empty or gcp not found)"
+        try:
+            if "gcp" in st.secrets:
+                has_gcp_secrets = "Yes (gcp found in st.secrets)"
+        except Exception as se:
+            has_gcp_secrets = f"Error reading secrets: {se}"
+        st.error(f"BigQuery connection failed: {e}\n\n**Diagnostic Info:**\n* **Streamlit Cloud Detected:** `{os.environ.get('STREAMLIT_SHARING_MODE') is not None}`\n* **OS Name:** `{os.name}`\n* **GCP Secrets Detected:** `{has_gcp_secrets}`")
         return None
 
 
