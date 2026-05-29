@@ -61,32 +61,71 @@ TIER_ORDER = ["high", "rising_cost", "moderate", "low"]
 @st.cache_resource
 def get_bq_client():
     import os
+    diagnostics = []
     try:
-        project = st.secrets["gcp"]["project_id"]
+        # Check st.secrets presence
+        has_secrets = "gcp" in st.secrets
+        diagnostics.append(f"gcp in st.secrets: {has_secrets}")
+        
+        if has_secrets:
+            gcp_sec = st.secrets["gcp"]
+            diagnostics.append(f"gcp keys: {list(gcp_sec.keys())}")
+            project = gcp_sec.get("project_id", "healthcare-risk-vinay")
+            
+            # 1. Try nested credentials
+            if "credentials" in gcp_sec:
+                diagnostics.append("Attempting nested credentials connection...")
+                try:
+                    creds_dict = dict(gcp_sec["credentials"])
+                    creds = service_account.Credentials.from_service_account_info(
+                        creds_dict,
+                        scopes=["https://www.googleapis.com/auth/bigquery"]
+                    )
+                    client = bigquery.Client(credentials=creds, project=project)
+                    diagnostics.append("Nested credentials connection succeeded!")
+                    return client
+                except Exception as ex:
+                    diagnostics.append(f"Nested credentials failed: {ex}")
+            
+            # 2. Try flat credentials (private_key directly in [gcp])
+            if "private_key" in gcp_sec:
+                diagnostics.append("Attempting flat credentials connection...")
+                try:
+                    creds_dict = dict(gcp_sec)
+                    creds = service_account.Credentials.from_service_account_info(
+                        creds_dict,
+                        scopes=["https://www.googleapis.com/auth/bigquery"]
+                    )
+                    client = bigquery.Client(credentials=creds, project=project)
+                    diagnostics.append("Flat credentials connection succeeded!")
+                    return client
+                except Exception as ex:
+                    diagnostics.append(f"Flat credentials failed: {ex}")
 
-        # If full credentials are in secrets (Streamlit Cloud)
-        if "credentials" in st.secrets["gcp"]:
-            creds_dict = dict(st.secrets["gcp"]["credentials"])
-            creds = service_account.Credentials.from_service_account_info(
-                creds_dict,
-                scopes=["https://www.googleapis.com/auth/bigquery"]
-            )
-            return bigquery.Client(credentials=creds, project=project)
-
-        # Fallback: local service account key file
+        # 3. Fallback: local service account key file
         key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        diagnostics.append(f"GOOGLE_APPLICATION_CREDENTIALS: {key_path}")
         if key_path and os.path.exists(key_path):
-            creds = service_account.Credentials.from_service_account_file(
-                key_path,
-                scopes=["https://www.googleapis.com/auth/bigquery"]
-            )
-            return bigquery.Client(credentials=creds, project=project)
+            diagnostics.append("Attempting local keyfile connection...")
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    key_path,
+                    scopes=["https://www.googleapis.com/auth/bigquery"]
+                )
+                client = bigquery.Client(credentials=creds, project=project if has_secrets else "healthcare-risk-vinay")
+                diagnostics.append("Local keyfile connection succeeded!")
+                return client
+            except Exception as ex:
+                diagnostics.append(f"Local keyfile failed: {ex}")
 
-        # Last resort: ADC
+        # 4. Last resort: ADC
+        diagnostics.append("Attempting ADC connection...")
+        project = st.secrets["gcp"]["project_id"] if has_secrets else "healthcare-risk-vinay"
         return bigquery.Client(project=project)
 
     except Exception as e:
-        st.error(f"BigQuery connection failed: {e}")
+        diag_str = "\n".join([f"* {d}" for d in diagnostics])
+        st.error(f"BigQuery connection failed: {e}\n\n**Diagnostic Trace:**\n{diag_str}")
         return None
 
 
