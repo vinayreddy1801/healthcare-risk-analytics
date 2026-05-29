@@ -63,7 +63,6 @@ def get_bq_client():
     import os
     diagnostics = []
     try:
-        # Check st.secrets presence
         has_secrets = "gcp" in st.secrets
         diagnostics.append(f"gcp in st.secrets: {has_secrets}")
         
@@ -72,37 +71,23 @@ def get_bq_client():
             diagnostics.append(f"gcp keys: {list(gcp_sec.keys())}")
             project = gcp_sec.get("project_id", "healthcare-risk-vinay")
             
-            # 1. Try nested credentials
-            if "credentials" in gcp_sec:
-                diagnostics.append("Attempting nested credentials connection...")
+            # Method 1: single JSON string in secrets (Streamlit Cloud)
+            if "service_account_json" in gcp_sec:
+                diagnostics.append("Attempting service_account_json string connection...")
                 try:
-                    creds_dict = dict(gcp_sec["credentials"])
+                    import json
+                    creds_info = json.loads(gcp_sec["service_account_json"])
                     creds = service_account.Credentials.from_service_account_info(
-                        creds_dict,
+                        creds_info,
                         scopes=["https://www.googleapis.com/auth/bigquery"]
                     )
                     client = bigquery.Client(credentials=creds, project=project)
-                    diagnostics.append("Nested credentials connection succeeded!")
+                    diagnostics.append("service_account_json connection succeeded!")
                     return client
                 except Exception as ex:
-                    diagnostics.append(f"Nested credentials failed: {ex}")
-            
-            # 2. Try flat credentials (private_key directly in [gcp])
-            if "private_key" in gcp_sec:
-                diagnostics.append("Attempting flat credentials connection...")
-                try:
-                    creds_dict = dict(gcp_sec)
-                    creds = service_account.Credentials.from_service_account_info(
-                        creds_dict,
-                        scopes=["https://www.googleapis.com/auth/bigquery"]
-                    )
-                    client = bigquery.Client(credentials=creds, project=project)
-                    diagnostics.append("Flat credentials connection succeeded!")
-                    return client
-                except Exception as ex:
-                    diagnostics.append(f"Flat credentials failed: {ex}")
-
-        # 3. Fallback: local service account key file
+                    diagnostics.append(f"service_account_json connection failed: {ex}")
+        
+        # Method 2: local key file (your laptop)
         key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         diagnostics.append(f"GOOGLE_APPLICATION_CREDENTIALS: {key_path}")
         if key_path and os.path.exists(key_path):
@@ -112,13 +97,13 @@ def get_bq_client():
                     key_path,
                     scopes=["https://www.googleapis.com/auth/bigquery"]
                 )
-                client = bigquery.Client(credentials=creds, project=project if has_secrets else "healthcare-risk-vinay")
+                client = bigquery.Client(credentials=creds, project=gcp_sec.get("project_id", "healthcare-risk-vinay") if has_secrets else "healthcare-risk-vinay")
                 diagnostics.append("Local keyfile connection succeeded!")
                 return client
             except Exception as ex:
                 diagnostics.append(f"Local keyfile failed: {ex}")
 
-        # 4. Last resort: ADC
+        # Method 3: ADC fallback
         diagnostics.append("Attempting ADC connection...")
         project = st.secrets["gcp"]["project_id"] if has_secrets else "healthcare-risk-vinay"
         return bigquery.Client(project=project)
