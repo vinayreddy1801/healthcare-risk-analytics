@@ -668,7 +668,7 @@ with tab4:
         return colors_map.get(val, "")
 
     st.dataframe(
-        df_display.style.applymap(color_quadrant, subset=["Quadrant"]),
+        df_display.style.map(color_quadrant, subset=["Quadrant"]),
         use_container_width=True,
         hide_index=True,
         height=400,
