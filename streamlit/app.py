@@ -60,58 +60,9 @@ TIER_ORDER = ["high", "rising_cost", "moderate", "low"]
 # ---------------------------------------------------------------------------
 @st.cache_resource
 def get_bq_client():
-    import os
-    diagnostics = []
-    try:
-        has_secrets = "gcp" in st.secrets
-        diagnostics.append(f"gcp in st.secrets: {has_secrets}")
-        
-        if has_secrets:
-            gcp_sec = st.secrets["gcp"]
-            diagnostics.append(f"gcp keys: {list(gcp_sec.keys())}")
-            project = gcp_sec.get("project_id", "healthcare-risk-vinay")
-            
-            # Method 1: single JSON string in secrets (Streamlit Cloud)
-            if "service_account_json" in gcp_sec:
-                diagnostics.append("Attempting service_account_json string connection...")
-                try:
-                    import json
-                    creds_info = json.loads(gcp_sec["service_account_json"])
-                    creds = service_account.Credentials.from_service_account_info(
-                        creds_info,
-                        scopes=["https://www.googleapis.com/auth/bigquery"]
-                    )
-                    client = bigquery.Client(credentials=creds, project=project)
-                    diagnostics.append("service_account_json connection succeeded!")
-                    return client
-                except Exception as ex:
-                    diagnostics.append(f"service_account_json connection failed: {ex}")
-        
-        # Method 2: local key file (your laptop)
-        key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        diagnostics.append(f"GOOGLE_APPLICATION_CREDENTIALS: {key_path}")
-        if key_path and os.path.exists(key_path):
-            diagnostics.append("Attempting local keyfile connection...")
-            try:
-                creds = service_account.Credentials.from_service_account_file(
-                    key_path,
-                    scopes=["https://www.googleapis.com/auth/bigquery"]
-                )
-                client = bigquery.Client(credentials=creds, project=gcp_sec.get("project_id", "healthcare-risk-vinay") if has_secrets else "healthcare-risk-vinay")
-                diagnostics.append("Local keyfile connection succeeded!")
-                return client
-            except Exception as ex:
-                diagnostics.append(f"Local keyfile failed: {ex}")
-
-        # Method 3: ADC fallback
-        diagnostics.append("Attempting ADC connection...")
-        project = st.secrets["gcp"]["project_id"] if has_secrets else "healthcare-risk-vinay"
-        return bigquery.Client(project=project)
-
-    except Exception as e:
-        diag_str = "\n".join([f"* {d}" for d in diagnostics])
-        st.error(f"BigQuery connection failed: {e}\n\n**Diagnostic Trace:**\n{diag_str}")
-        return None
+    # TEMP DIAGNOSTIC - remove after fixing
+    st.write("All secret keys:", dict(st.secrets))
+    return None
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
