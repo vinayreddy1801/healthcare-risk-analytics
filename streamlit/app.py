@@ -60,9 +60,40 @@ TIER_ORDER = ["high", "rising_cost", "moderate", "low"]
 # ---------------------------------------------------------------------------
 @st.cache_resource
 def get_bq_client():
-    # TEMP DIAGNOSTIC - remove after fixing
-    st.write("All secret keys:", dict(st.secrets))
-    return None
+    import os
+    try:
+        # Streamlit Cloud — flat secrets
+        if "service_account_json" in st.secrets:
+            import json
+            creds_info = json.loads(st.secrets["service_account_json"])
+            project = st.secrets.get("project_id", "healthcare-risk-vinay")
+            creds = service_account.Credentials.from_service_account_info(
+                creds_info,
+                scopes=["https://www.googleapis.com/auth/bigquery"]
+            )
+            return bigquery.Client(credentials=creds, project=project)
+
+        # Local laptop — key file
+        key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if key_path and os.path.exists(key_path):
+            project = st.secrets.get("project_id") or \
+                      st.secrets.get("gcp", {}).get("project_id") or \
+                      os.getenv("GCP_PROJECT_ID", "healthcare-risk-vinay")
+            creds = service_account.Credentials.from_service_account_file(
+                key_path,
+                scopes=["https://www.googleapis.com/auth/bigquery"]
+            )
+            return bigquery.Client(credentials=creds, project=project)
+
+        # ADC fallback
+        project = st.secrets.get("project_id") or \
+                  st.secrets.get("gcp", {}).get("project_id") or \
+                  os.getenv("GCP_PROJECT_ID", "healthcare-risk-vinay")
+        return bigquery.Client(project=project)
+
+    except Exception as e:
+        st.error(f"BigQuery connection failed: {e}")
+        return None
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -87,54 +118,35 @@ def query_bq(sql: str) -> pd.DataFrame:
 
 def get_project() -> str:
     import os
-    env_project = os.environ.get("GCP_PROJECT_ID")
-    if env_project:
-        return env_project
-        
-    local_key = "C:/projects/healthcare_risk/gcp-json-key.json"
-    if os.path.exists(local_key):
-        try:
-            with open(local_key, "r") as f:
-                key_data = json.load(f)
-                return key_data.get("project_id", "healthcare-risk-vinay")
-        except Exception:
-            pass
+    try:
+        project = st.secrets.get("project_id") or \
+                  st.secrets.get("gcp", {}).get("project_id") or \
+                  os.getenv("GCP_PROJECT_ID")
+        if project:
+            return project
             
-    is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
-    secrets_exist = is_streamlit_cloud
-    if not secrets_exist:
-        for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-            if os.path.exists(path):
-                secrets_exist = True
-                break
-            
-    if secrets_exist:
-        try:
-            return st.secrets["gcp"]["project_id"]
-        except Exception:
-            pass
-            
-    return "healthcare-risk-vinay"
+        local_key = "C:/projects/healthcare_risk/gcp-json-key.json"
+        if os.path.exists(local_key):
+            try:
+                with open(local_key, "r") as f:
+                    import json
+                    key_data = json.load(f)
+                    return key_data.get("project_id", "healthcare-risk-vinay")
+            except Exception:
+                pass
+        return "healthcare-risk-vinay"
+    except Exception:
+        return "healthcare-risk-vinay"
 
 
 def get_dataset() -> str:
     import os
-    is_streamlit_cloud = os.environ.get("STREAMLIT_SHARING_MODE") is not None
-    secrets_exist = is_streamlit_cloud
-    if not secrets_exist:
-        for path in [".streamlit/secrets.toml", os.path.expanduser("~/.streamlit/secrets.toml")]:
-            if os.path.exists(path):
-                secrets_exist = True
-                break
-            
-    if secrets_exist:
-        try:
-            if "gcp" in st.secrets and "dataset" in st.secrets["gcp"]:
-                return st.secrets["gcp"]["dataset"]
-        except Exception:
-            pass
-            
-    return os.environ.get("GCP_DATASET", "healthcare_risk_dev_marts")
+    try:
+        return st.secrets.get("dataset") or \
+               st.secrets.get("gcp", {}).get("dataset") or \
+               os.getenv("GCP_DATASET", "healthcare_risk_dev_marts")
+    except Exception:
+        return "healthcare_risk_dev_marts"
 
 
 # ---------------------------------------------------------------------------
